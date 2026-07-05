@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Interaktivní simulátor dírkové komory (camera obscura) pro kreativní workshop — zorný úhel, clonové číslo, optimální dírka a expozice v reálném čase.">
+<meta name="theme-color" content="#171310">
+<title>Simulátor dírkové komory · Camera obscura</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23171310'/><circle cx='50' cy='50' r='9' fill='%23e9a03b'/><path d='M50 50 L14 22 M50 50 L14 78' stroke='%23e9a03b' stroke-width='4' opacity='.55'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* ---------------------------------------------------------------------------
+   Temná komora: teplá čerň, jantarové světlo paprsků, červené „safelight“
+   akcenty a jeden velký světlý objekt — vznikající fotografie.
+--------------------------------------------------------------------------- */
+:root{
+  --ink:#171310;          /* pozadí temné komory */
+  --panel:#201b16;        /* karty */
+  --panel-2:#262019;
+  --line:rgba(233,215,185,.14);
+  --line-strong:rgba(233,215,185,.26);
+  --paper:#f0e9dc;        /* fotopapír */
+  --paper-ink:#26201a;    /* text na papíru */
+  --text:#ece3d4;
+  --muted:#a89a86;
+  --amber:#e9a03b;        /* světlo */
+  --amber-soft:rgba(233,160,59,.16);
+  --safelight:#e8503a;    /* červená lampa */
+  --ok:#8fbf75;
+  --warn:#e0b356;
+  --bad:#e06a55;
+  --radius:14px;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --disp:"Fraunces","Georgia",serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
+}
+body{
+  margin:0;background:var(--ink);color:var(--text);
+  font-family:var(--sans);font-size:15.5px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(1100px 500px at 78% -140px, rgba(233,160,59,.07), transparent 60%),
+                   radial-gradient(700px 380px at 8% 4%, rgba(232,80,58,.05), transparent 60%);
+}
+.wrap{max-width:1160px;margin:0 auto;padding:0 20px}
+a{color:var(--amber)}
+
+/* ------- hlavička ------- */
+header.hero{padding:44px 0 26px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:10px}
+.eyebrow .lamp{width:8px;height:8px;border-radius:50%;background:var(--safelight);box-shadow:0 0 10px 2px rgba(232,80,58,.55);animation:pulse 2.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+h1{font-family:var(--disp);font-weight:600;font-size:clamp(30px,4.6vw,46px);line-height:1.08;margin:14px 0 10px;letter-spacing:-.01em}
+h1 em{font-style:italic;color:var(--amber)}
+.lead{max-width:640px;color:var(--muted);margin:0}
+.lead b{color:var(--text);font-weight:500}
+
+/* ------- rozvržení simulátoru ------- */
+main{padding:26px 0 60px}
+.sim-grid{display:grid;grid-template-columns:minmax(330px,390px) 1fr;gap:22px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+.card h2{font-family:var(--disp);font-weight:600;font-size:19px;margin:0 0 4px}
+.card .sub{color:var(--muted);font-size:13px;margin:0 0 16px}
+.stack>*+*{margin-top:20px}
+
+/* ------- ovládací prvky ------- */
+.field label{display:flex;justify-content:space-between;align-items:baseline;font-weight:600;font-size:13.5px;margin-bottom:7px;gap:10px}
+.field label .val{font-family:var(--mono);font-weight:600;color:var(--amber);font-size:13.5px;white-space:nowrap}
+.hint{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.45}
+.hint.err{color:var(--bad)}
+select,input[type=number]{
+  width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--line-strong);
+  border-radius:9px;padding:9px 11px;font:inherit;font-size:14px;
+}
+select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.row{display:flex;gap:10px}
+.row>*{flex:1;min-width:0}
+.slider-row{display:flex;gap:12px;align-items:center}
+.slider-row input[type=number]{flex:0 0 86px;font-family:var(--mono);text-align:right;padding:7px 9px}
+input[type=range]{flex:1;appearance:none;-webkit-appearance:none;height:26px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(90deg,rgba(233,160,59,.55),rgba(233,160,59,.25))}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:rgba(233,160,59,.35)}
+input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--amber);border:3px solid #171310;box-shadow:0 0 0 1px rgba(233,160,59,.7),0 2px 8px rgba(0,0,0,.5);margin-top:-7px}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--amber);border:3px solid #171310;box-shadow:0 0 0 1px rgba(233,160,59,.7)}
+.slider-scale{position:relative;height:14px;margin-top:2px;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+.slider-scale .min{position:absolute;left:2px}.slider-scale .max{position:absolute;right:2px}
+.opt-mark{position:absolute;top:-9px;transform:translateX(-50%);color:var(--ok);font-size:10px;letter-spacing:.02em;text-align:center;line-height:1.1;transition:left .15s ease}
+.opt-mark::before{content:"";display:block;width:2px;height:7px;background:var(--ok);margin:0 auto 1px;border-radius:1px}
+button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line-strong);background:var(--panel-2);color:var(--text);padding:8px 13px;font-size:13px;font-weight:600;transition:border-color .15s,background .15s}
+button:hover{border-color:var(--amber);background:rgba(233,160,59,.08)}
+button.ghost{padding:5px 10px;font-size:12.5px}
+.checkline{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;color:var(--text);cursor:pointer}
+.checkline input{margin-top:3px;accent-color:var(--amber);width:15px;height:15px;cursor:pointer}
+.checkline span small{display:block;color:var(--muted);font-weight:400;font-size:12px;margin-top:1px}
+
+/* ------- vypočítané hodnoty ------- */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.stat{background:var(--panel);padding:14px 16px}
+.stat .k{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:var(--mono);font-size:21px;font-weight:600;margin:4px 0 2px;color:var(--text)}
+.stat .d{font-size:12px;color:var(--muted);line-height:1.4}
+.badge{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:99px;border:1px solid var(--line-strong);color:var(--amber);margin-top:2px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:0}
+.c-ok{color:var(--ok)}.c-warn{color:var(--warn)}.c-bad{color:var(--bad)}
+.b-ok{background:var(--ok)}.b-warn{background:var(--warn)}.b-bad{background:var(--bad)}
+.expo{grid-column:1/-1;background:var(--panel);padding:14px 16px;border-top:1px solid var(--line)}
+.expo .verdict{font-weight:600;font-size:14.5px}
+.expo .rec{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted)}
+.expo .rec b{font-family:var(--mono);color:var(--text);font-weight:600}
+
+/* ------- „fotografie“ (signaturní prvek) ------- */
+.print-card{background:var(--paper);border-radius:var(--radius);padding:16px 16px 12px;box-shadow:0 24px 60px -18px rgba(0,0,0,.75),0 4px 14px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.06)}
+.print-head{display:flex;justify-content:space-between;align-items:center;margin:0 2px 12px;color:var(--paper-ink)}
+.print-head .t{font-family:var(--disp);font-weight:600;font-size:17px}
+.live{font-family:var(--mono);font-size:11px;letter-spacing:.12em;display:flex;align-items:center;gap:7px;color:#8a4a3d}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--safelight);box-shadow:0 0 8px rgba(232,80,58,.8);animation:pulse 2.2s infinite}
+.cv-wrap{overflow:hidden;border-radius:4px;background:#111;line-height:0}
+#previewCanvas{width:100%;display:block;transform:scale(1.015)} /* scale skryje měkké okraje při CSS blur */
+.print-caption{font-family:var(--mono);font-size:11.5px;color:#5c5245;margin:10px 2px 2px;line-height:1.5;min-height:2.6em}
+
+/* ------- schéma ------- */
+.schema-card svg{width:100%;height:auto;display:block}
+.schema-legend{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 18px}
+.schema-legend b{color:var(--text);font-weight:600}
+
+/* ------- presety ------- */
+section.block{margin-top:54px}
+section.block>h2{font-family:var(--disp);font-weight:600;font-size:clamp(22px,3vw,30px);margin:0 0 6px}
+section.block>.sub{color:var(--muted);max-width:640px;margin:0 0 20px}
+.presets{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.preset{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;text-align:left;display:flex;flex-direction:column;gap:8px;transition:transform .15s,border-color .15s}
+.preset:hover{transform:translateY(-2px);border-color:var(--amber)}
+.preset[aria-pressed="true"]{border-color:var(--amber);background:linear-gradient(180deg,var(--amber-soft),var(--panel) 65%)}
+.preset .ico{font-size:22px;line-height:1}
+.preset .name{font-family:var(--disp);font-weight:600;font-size:16.5px;color:var(--text)}
+.preset .meta{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.03em}
+.preset-desc{margin-top:16px;border-left:3px solid var(--amber);background:var(--panel);border-radius:0 var(--radius) var(--radius) 0;padding:14px 18px;color:var(--text);font-size:14.5px;line-height:1.6;display:none}
+.preset-desc.show{display:block}
+.preset-desc b{color:var(--amber);font-family:var(--disp)}
+
+/* ------- průvodce expozicí ------- */
+.guide{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+.guide .card p{margin:0 0 12px;color:var(--text)}
+.guide .card p:last-child{margin-bottom:0}
+.guide .muted{color:var(--muted)}
+ol.steps{margin:0;padding:0;list-style:none;counter-reset:s}
+ol.steps li{counter-increment:s;padding:12px 0 12px 44px;position:relative;border-top:1px solid var(--line)}
+ol.steps li:first-child{border-top:0;padding-top:2px}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:10px;width:28px;height:28px;border-radius:50%;border:1px solid var(--amber);color:var(--amber);font-family:var(--mono);font-weight:600;font-size:13px;display:grid;place-items:center}
+ol.steps li:first-child::before{top:0}
+ol.steps b{display:block;font-size:14.5px}
+ol.steps span{color:var(--muted);font-size:13.5px}
+table.exp{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px;margin-top:4px}
+table.exp caption{caption-side:top;text-align:left;font-family:var(--sans);font-weight:600;font-size:14px;color:var(--text);padding-bottom:8px}
+table.exp th,table.exp td{padding:8px 10px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+table.exp th:first-child,table.exp td:first-child{text-align:left;font-family:var(--sans)}
+table.exp thead th{color:var(--muted);font-weight:600;border-top:0;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase}
+table.exp td{color:var(--amber);font-weight:600}
+.note{font-size:12.5px;color:var(--muted);margin-top:10px;line-height:1.5}
+
+footer{border-top:1px solid var(--line);margin-top:60px;padding:26px 0 40px;color:var(--muted);font-size:13px}
+footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+
+@media (max-width:960px){
+  .sim-grid{grid-template-columns:1fr}
+  .guide{grid-template-columns:1fr}
+}
+@media (max-width:560px){
+  header.hero{padding-top:30px}
+  .card{padding:16px}
+  .slider-row input[type=number]{flex-basis:76px}
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow"><span class="lamp" aria-hidden="true"></span>Kreativní workshop · camera obscura · pracujeme za červeného světla</div>
+    <h1>Simulátor <em>dírkové komory</em></h1>
+    <p class="lead">Krabice, fotopapír a dírka o desetinách milimetru. Posouvejte parametry a sledujte, jak se
+    <b>živě přepočítává zorný úhel, clona, ostrost i výsledná fotografie</b> — dřív, než začnete vrtat a lepit.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ===================== SIMULÁTOR ===================== -->
+  <div class="sim-grid" id="simulator">
+
+    <!-- ---------- levý sloupec: vstupy + hodnoty ---------- -->
+    <div class="stack">
+      <div class="card stack" aria-label="Parametry komory">
+        <div>
+          <h2>Parametry komory</h2>
+          <p class="sub">Vše se přepočítává okamžitě — žádné tlačítko „spočítat“.</p>
+        </div>
+
+        <div class="field">
+          <label for="selFormat">Formát fotopapíru <span class="val" id="diagOut"></span></label>
+          <select id="selFormat">
+            <option value="10x15" selected>Fomaspeed 10 × 15 cm</option>
+            <option value="13x18">Fomaspeed 13 × 18 cm</option>
+            <option value="custom">Vlastní rozměr…</option>
+          </select>
+          <div class="row" id="customRow" style="display:none;margin-top:10px">
+            <div>
+              <input type="number" id="inW" inputmode="decimal" min="3" max="120" step="0.5" value="10" aria-label="Šířka papíru v centimetrech">
+              <div class="hint">šířka (cm)</div>
+            </div>
+            <div>
+              <input type="number" id="inH" inputmode="decimal" min="3" max="120" step="0.5" value="15" aria-label="Výška papíru v centimetrech">
+              <div class="hint">výška (cm)</div>
+            </div>
+          </div>
+          <div class="hint err" id="customErr" style="display:none"></div>
+          <div class="hint">Úhlopříčka papíru určuje spolu s hloubkou krabice zorný úhel.</div>
+        </div>
+
+        <div class="field">
+          <label for="rngF">Hloubka krabice · ohnisko <i>f</i> <span class="val" id="fVal"></span></label>
+          <div class="slider-row">
+            <input type="range" id="rngF" min="20" max="400" step="1" value="120">
+            <input type="number" id="numF" inputmode="numeric" min="20" max="400" step="1" value="120" aria-label="Hloubka krabice v milimetrech">
+          </div>
+          <div class="slider-scale"><span class="min">20 mm</span><span class="max">400 mm</span></div>
+          <div class="hint">Mělká krabice = širokoúhlý záběr a kratší časy. Hluboká = teleobjektiv.</div>
+        </div>
+
+        <div class="field">
+          <label for="rngD">Průměr dírky <i>d</i> <span class="val" id="dVal"></span></label>
+          <div class="slider-row">
+            <input type="range" id="rngD" min="0.1" max="2" step="0.01" value="0.40">
+            <input type="number" id="numD" inputmode="decimal" min="0.1" max="2" step="0.01" value="0.40" aria-label="Průměr dírky v milimetrech">
+          </div>
+          <div class="slider-scale">
+            <span class="min">0,1 mm</span><span class="max">2,0 mm</span>
+            <span class="opt-mark" id="optMark" title="Optimální průměr">optimum</span>
+          </div>
+          <div class="hint" style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+            <span>Zelená značka = optimum podle Rayleighova kritéria.</span>
+            <button class="ghost" id="btnOptD" type="button">Použít optimum</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="rngT">Čas expozice <span class="val" id="tVal"></span></label>
+          <div class="slider-row">
+            <input type="range" id="rngT" min="0" max="30" step="1" value="9">
+          </div>
+          <div class="slider-scale"><span class="min">1 s</span><span class="max">3 měsíce</span></div>
+          <div class="hint">Stupnice není lineární — od vteřin přes minuty a hodiny až po měsíce (solargrafie).</div>
+        </div>
+
+        <div class="field">
+          <label for="selLight">Světlo na scéně</label>
+          <select id="selLight">
+            <option value="15" selected>Jasné slunce (EV 15)</option>
+            <option value="13">Polojasno, lehká oblačnost (EV 13)</option>
+            <option value="11">Zataženo (EV 11)</option>
+            <option value="8">Hluboký stín · soumrak (EV 8)</option>
+          </select>
+          <div class="hint">Podle světla simulátor doporučí čas expozice a upraví náhled scény.</div>
+        </div>
+
+        <div class="field">
+          <label for="selMat">Citlivý materiál</label>
+          <select id="selMat">
+            <option value="p6" selected>Fotopapír Fomaspeed (ISO ≈ 6)</option>
+            <option value="p3">Pomalejší fotopapír (ISO ≈ 3)</option>
+            <option value="f100">Černobílý film (ISO 100)</option>
+            <option value="f400">Černobílý film (ISO 400)</option>
+          </select>
+          <label class="checkline" style="margin-top:10px">
+            <input type="checkbox" id="chkRecip" checked>
+            <span>Započítat Schwarzschildův jev
+              <small>Při dlouhých časech materiál ztrácí citlivost — doporučený čas se prodlouží (u papíru ≈ t<sup>1,3</sup>).</small>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div class="stats" aria-live="polite" aria-label="Vypočítané hodnoty">
+        <div class="stat">
+          <div class="k">Zorný úhel α</div>
+          <div class="v" id="statAlpha">—</div>
+          <div><span class="badge" id="statAlphaType">—</span></div>
+        </div>
+        <div class="stat">
+          <div class="k">Clonové číslo</div>
+          <div class="v" id="statN">—</div>
+          <div class="d">N = f ÷ d</div>
+        </div>
+        <div class="stat">
+          <div class="k">Optimální dírka</div>
+          <div class="v" id="statDopt">—</div>
+          <div class="d" id="statDoptDelta">—</div>
+        </div>
+        <div class="stat">
+          <div class="k">Ostrost obrazu</div>
+          <div class="v" style="font-size:14.5px;line-height:1.35;font-family:var(--sans)" id="statSharp">—</div>
+          <div class="d" id="statSharpSub"></div>
+        </div>
+        <div class="expo">
+          <div class="verdict" id="expoVerdict">—</div>
+          <div class="rec" id="expoRecRow">
+            Doporučený čas pro tuto clonu, materiál a světlo: <b id="expoRec">—</b>
+            <button class="ghost" id="btnRecT" type="button">Nastavit na slideru</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- pravý sloupec: fotografie + schéma ---------- -->
+    <div class="stack">
+      <div class="print-card">
+        <div class="print-head">
+          <span class="t">Výsledná fotografie</span>
+          <span class="live"><i aria-hidden="true"></i>ŽIVÝ NÁHLED</span>
+        </div>
+        <div class="cv-wrap"><canvas id="previewCanvas" role="img" aria-label="Simulovaný náhled fotografie z dírkové komory"></canvas></div>
+        <div class="print-caption" id="printCaption">—</div>
+      </div>
+
+      <div class="card schema-card">
+        <h2>Schéma komory — pohled shora</h2>
+        <p class="sub">Paprsky procházejí dírkou a kreslí na papír převrácený obraz. Hloubka krabice odpovídá slideru.</p>
+        <div id="schemaBox" aria-hidden="true"></div>
+        <div class="schema-legend" id="schemaLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== PRESETY ===================== -->
+  <section class="block" id="presety">
+    <h2>Recepty na konkrétní efekty</h2>
+    <p class="sub">Klepnutím se hodnoty nastaví na sliderech — pak si je klidně dolaďte. Každý recept využívá jinou délku expozice.</p>
+    <div class="presets" id="presetGrid" role="group" aria-label="Přednastavené efekty"></div>
+    <div class="preset-desc" id="presetDesc" aria-live="polite"></div>
+  </section>
+
+  <!-- ===================== PRŮVODCE EXPOZICÍ ===================== -->
+  <section class="block" id="expozice">
+    <h2>Malý průvodce expozicí</h2>
+    <p class="sub">U dírkové komory nejde clona nastavit — je pevně daná poměrem <b style="font-family:var(--mono)">N&nbsp;=&nbsp;f&nbsp;÷&nbsp;d</b>.
+    Jediné, co ovládáte, je <b>čas</b>. Expozice = jas scény × doba, po kterou je dírka odkrytá.</p>
+
+    <div class="guide">
+      <div class="card">
+        <ol class="steps">
+          <li><b>Zjistěte clonové číslo</b><span>Vydělte hloubku krabice průměrem dírky. Typicky vyjde f/150 až f/350 — to je o 10 až 15 EV méně světla než běžný objektiv, proto se exponuje vteřiny až hodiny.</span></li>
+          <li><b>Odhadněte světlo na scéně</b><span>Jasné slunce, polojasno, zataženo, nebo stín? V simulátoru tomu odpovídá volba „Světlo na scéně“.</span></li>
+          <li><b>Určete základní čas</b><span>Z tabulky vedle, nebo nechte spočítat simulátor („Doporučený čas“). Fotopapír má citlivost jen ISO ≈ 3–6.</span></li>
+          <li><b>Prodlužte o Schwarzschildův jev</b><span>Při časech nad ~1 s papír ztrácí citlivost, takže skutečný čas musí být delší, než vyjde z prostého výpočtu. Simulátor prodlužuje přibližně na t<sup>1,3</sup>.</span></li>
+          <li><b>Jistota = tři snímky</b><span>Exponujte poloviční, vypočtený a dvojnásobný čas (bracketing). Papír je levný, zkušenost k nezaplacení.</span></li>
+        </ol>
+      </div>
+      <div class="card">
+        <table class="exp">
+          <caption>Orientační časy pro Fomaspeed (ISO ≈ 6), včetně Schwarzschildova prodloužení</caption>
+          <thead><tr><th>Světlo</th><th>f/200</th><th>f/300</th></tr></thead>
+          <tbody>
+            <tr><td>Jasné slunce</td><td>≈ 50 s</td><td>≈ 2,5 min</td></tr>
+            <tr><td>Polojasno</td><td>≈ 5 min</td><td>≈ 15 min</td></tr>
+            <tr><td>Zataženo</td><td>≈ 30 min</td><td>≈ 1,5 h</td></tr>
+            <tr><td>Hluboký stín · soumrak</td><td>≈ 8 h</td><td>≈ 22 h</td></tr>
+          </tbody>
+        </table>
+        <p class="note">Menší dírka znamená vyšší clonové číslo, a tedy delší čas — ostrost se vždy vyměňuje za světlo.
+        Na papíru vzniká <b>negativ</b>; pozitiv z něj uděláte kontaktní kopií na druhý papír.
+        Papír vkládejte a vyvolávejte výhradně pod červeným světlem. Expozice nad jeden den už není klasická fotografie,
+        ale <b>solargrafie</b> — papír ztmavne přímo, bez vyvolání, a zachytí dráhy slunce.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Simulátor dírkové komory · vytvořeno pro kreativní workshop</span>
+    <span>Náhled fotografie je ilustrační — skutečný svět je vždy o kousek krásnější.</span>
+  </div>
+</footer>
+
+<script>
+"use strict";
+/* =============================================================================
+   KONSTANTY
+============================================================================= */
+const LAMBDA = 0.00055;               // vlnová délka světla [mm] (~550 nm)
+const EXP_STEPS = [                   // nelineární stupnice času expozice
+  {s:1,l:"1 s"},{s:2,l:"2 s"},{s:4,l:"4 s"},{s:8,l:"8 s"},{s:15,l:"15 s"},{s:30,l:"30 s"},{s:45,l:"45 s"},
+  {s:60,l:"1 min"},{s:90,l:"1,5 min"},{s:120,l:"2 min"},{s:180,l:"3 min"},{s:300,l:"5 min"},{s:480,l:"8 min"},
+  {s:600,l:"10 min"},{s:900,l:"15 min"},{s:1200,l:"20 min"},{s:1800,l:"30 min"},{s:2700,l:"45 min"},
+  {s:3600,l:"1 h"},{s:7200,l:"2 h"},{s:14400,l:"4 h"},{s:28800,l:"8 h"},{s:43200,l:"12 h"},
+  {s:86400,l:"1 den"},{s:172800,l:"2 dny"},{s:345600,l:"4 dny"},{s:604800,l:"1 týden"},{s:1209600,l:"2 týdny"},
+  {s:2592000,l:"1 měsíc"},{s:5184000,l:"2 měsíce"},{s:7776000,l:"3 měsíce"}
+];
+const MATERIALS = {
+  p6:{iso:6,paper:true},
+  p3:{iso:3,paper:true},
+  f100:{iso:100,paper:false},
+  f400:{iso:400,paper:false}
+};
+const PRESETS = [
+  {id:"freeze", ico:"⏱", name:"Zmrazení pohybu", meta:"desítky vteřin",
+   set:{format:"10x15", f:40, d:0.23, t:30, light:15},
+   desc:"<b>Zmrazení pohybu.</b> Mělká krabice, optimální dírka a jasné slunce stlačí expozici na desítky vteřin. Kdo vydrží půl minuty bez hnutí, bude na snímku ostrý; co se pohne rychle, nestihne se do papíru vůbec zapsat."},
+  {id:"ghost", ico:"👻", name:"Efekt duchů", meta:"2–5 minut",
+   set:{format:"10x15", f:80, d:0.38, t:300, light:13},
+   desc:"<b>Efekt duchů.</b> Při expozici 2–5 minut lidé, kteří scénou jen projdou, na fotce vůbec nebudou. Kdo zůstane minutu až dvě nehybně stát, promění se v poloprůhledného ducha — papír ho zaznamená jen po část celkového času."},
+  {id:"water", ico:"🌊", name:"Rozmazání vody a mraků", meta:"10–20 minut",
+   set:{format:"10x15", f:110, d:0.38, t:900, light:13},
+   desc:"<b>Rozmazání vody a mraků.</b> Během 10–20 minut se tekoucí voda a plující mraky zprůměrují do hladké, mlžné plochy. Všechno nehybné — stromy, budovy, kameny — zůstane kresebné. Klasika dlouhé expozice."},
+  {id:"solar", ico:"☀️", name:"Solargrafie", meta:"týdny až měsíce",
+   set:{format:"10x15", f:160, d:0.40, t:5184000, light:15},
+   desc:"<b>Solargrafie.</b> Komoru pevně připevněte na místo (strom, sloup, parapet) a nechte ji tam týdny až měsíce. Papír bez vyvolání přímo ztmavne a den po dni zaznamená dráhu slunce jako jasné světelné oblouky putující po obloze. Skener, negativ převrátit — hotovo."}
+];
+
+/* =============================================================================
+   STAV A POMOCNÉ FUNKCE
+============================================================================= */
+const S = { format:"10x15", w:10, h:15, f:120, d:0.40, tIdx:9, ev:15, mat:"p6", recip:true, presetId:null };
+const $ = id => document.getElementById(id);
+const clamp = (x,a,b)=>Math.min(b,Math.max(a,x));
+const fmt = (x,dec=1)=>x.toLocaleString("cs-CZ",{minimumFractionDigits:dec,maximumFractionDigits:dec});
+const parseNum = v => parseFloat(String(v).replace(",",".").trim());
+
+function paperMM(){                    // [dlouhá strana, krátká strana, úhlopříčka] v mm
+  if(S.format==="10x15") return {a:150,b:100,diag:180};
+  if(S.format==="13x18") return {a:180,b:130,diag:222};
+  const w=S.w*10,h=S.h*10;
+  return {a:Math.max(w,h), b:Math.min(w,h), diag:Math.sqrt(w*w+h*h)};
+}
+function fmtTime(sec){                 // chytré české formátování času
+  if(sec<0.5) return "1/"+Math.round(1/sec)+" s";
+  if(sec<90)  return fmt(sec, sec<10?1:0)+" s";
+  if(sec<5400){const m=sec/60;return fmt(m, m<10?1:0)+" min";}
+  if(sec<172800){const h=sec/3600;return fmt(h, h<10?1:0)+" h";}
+  if(sec<86400*14){const d=Math.round(sec/86400);return d+" "+(d===1?"den":(d<5?"dny":"dní"));}
+  if(sec<86400*29){const t=Math.round(sec/604800);return t+" "+(t===1?"týden":(t<5?"týdny":"týdnů"));}
+  const m=Math.round(sec/2592000);return m+" "+(m===1?"měsíc":(m<5?"měsíce":"měsíců"));
+}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+
+/* =============================================================================
+   VÝPOČTY
+============================================================================= */
+function compute(){
+  const p = paperMM();
+  const f = S.f, d = S.d;
+  const alpha  = 2*Math.atan(p.diag/(2*f))*180/Math.PI;      // diagonální zorný úhel
+  const alphaH = 2*Math.atan(p.a   /(2*f))*180/Math.PI;      // horizontální (pro náhled)
+  const N      = f/d;
+  const dOpt   = 0.036*Math.sqrt(f);                          // Rayleigh
+  const ratio  = d/dOpt;
+  const geo    = d;                                           // geometrická skvrna ≈ d
+  const diff   = 2.44*LAMBDA*f/d;                             // difrakční skvrna
+  const spot   = Math.sqrt(geo*geo+diff*diff);                // celková neostrost [mm]
+
+  const m = MATERIALS[S.mat];
+  const tRaw = (N*N)*(100/m.iso)/Math.pow(2,S.ev);            // sunny-16 zobecněně
+  let tRec = tRaw;
+  if(S.recip && tRaw>1) tRec = Math.pow(tRaw, m.paper?1.3:1.15); // Schwarzschild
+  const tUser = EXP_STEPS[S.tIdx].s;
+  const dEV = Math.log2(tUser/tRec);
+
+  let lensType, lensCls;
+  if(alpha<40){lensType="Teleobjektiv — úzký výřez scény";lensCls="tele";}
+  else if(alpha<=60){lensType="Normální objektiv";lensCls="norm";}
+  else if(alpha<=90){lensType="Širokoúhlý objektiv";lensCls="wide";}
+  else{lensType="Extrémní širokoúhlý objektiv";lensCls="xwide";}
+
+  let sharp;
+  if(ratio>=0.85&&ratio<=1.2) sharp={cls:"ok", t:"Blízko optima", sub:"Nejostřejší obraz, jaký dírka dovolí."};
+  else if(ratio>2)            sharp={cls:"bad",t:"Velká geometrická neostrost", sub:"Dírka je výrazně větší než optimum — obraz bude měkký a rozmytý."};
+  else if(ratio>1.2)          sharp={cls:"warn",t:"Geometrická neostrost", sub:"Dírka je větší než optimum — obraz změkne."};
+  else if(ratio<0.6)          sharp={cls:"bad",t:"Silná difrakce", sub:"Dírka je příliš malá — ohyb světla obraz rozmazává a čas se prodlužuje."};
+  else                        sharp={cls:"warn",t:"Nastupuje difrakce", sub:"Dírka je menší než optimum — mírné rozmazání ohybem světla."};
+
+  return {p,alpha,alphaH,N,dOpt,ratio,spot,tRec,tUser,dEV,lensType,lensCls,sharp,mat:m};
+}
+
+/* =============================================================================
+   VÝSTUPY — HODNOTY, VERDIKT EXPOZICE
+============================================================================= */
+function renderStats(c){
+  $("diagOut").textContent = "úhlopříčka "+fmt(c.p.diag,0)+" mm";
+  $("fVal").textContent = fmt(S.f,0)+" mm";
+  $("dVal").textContent = fmt(S.d,2)+" mm";
+  $("tVal").textContent = EXP_STEPS[S.tIdx].l;
+
+  $("statAlpha").textContent = fmt(c.alpha,1).replace(/\s/g,"")+"°";
+  $("statAlphaType").textContent = c.lensType.split(" — ")[0];
+  $("statN").textContent = "f/"+Math.round(c.N);
+  $("statDopt").textContent = fmt(c.dOpt,2)+" mm";
+  const pct = Math.round((c.ratio-1)*100);
+  $("statDoptDelta").innerHTML = c.ratio>=0.85&&c.ratio<=1.2
+    ? '<span class="c-ok">✓ aktuální dírka je v optimu</span>'
+    : "aktuální dírka: "+(pct>0?"+":"")+pct+" % od optima";
+  $("statSharp").innerHTML = '<span class="dot b-'+c.sharp.cls+'"></span><span class="c-'+c.sharp.cls+'">'+c.sharp.t+"</span>";
+  $("statSharpSub").textContent = c.sharp.sub;
+
+  // značka optima na slideru dírky
+  const pos = clamp((c.dOpt-0.1)/1.9,0,1)*100;
+  $("optMark").style.left = pos+"%";
+  $("optMark").title = "Optimum "+fmt(c.dOpt,2)+" mm";
+
+  // verdikt expozice
+  const V=$("expoVerdict"), R=$("expoRecRow");
+  if(c.tUser>=86400){
+    V.innerHTML='<span class="c-warn">☀ Režim solargrafie</span> — extrémní přeexpozice je záměr. Papír ztmavne přímo (bez vyvolání) a zaznamená dráhy slunce.';
+    R.style.display="none";
+  }else{
+    R.style.display="";
+    $("expoRec").textContent="≈ "+fmtTime(c.tRec);
+    const a=Math.abs(c.dEV), s=fmt(a,1)+" EV";
+    if(a<=0.5)      V.innerHTML='<span class="c-ok">✓ Správná expozice</span> — nastavený čas odpovídá světlu a cloně.';
+    else if(c.dEV>1.5) V.innerHTML='<span class="c-bad">Přeexponováno o '+s+'</span> — snímek vyjde vypálený do světla.';
+    else if(c.dEV>0)   V.innerHTML='<span class="c-warn">Mírně přeexponováno (+'+s+')</span> — snímek bude světlejší.';
+    else if(c.dEV<-1.5)V.innerHTML='<span class="c-bad">Podexponováno o '+s+'</span> — snímek zůstane tmavý, skoro černý.';
+    else               V.innerHTML='<span class="c-warn">Mírně podexponováno (−'+s+')</span> — snímek bude tmavší.';
+  }
+
+  // popisek pod fotografií
+  const eff = c.tUser<=2 ? "Krátká expozice — i kolemjdoucí je zmrazen a ostrý."
+    : c.tUser<=45   ? "Kolemjdoucí ze snímku téměř zmizeli; kdo stojí, je ostrý."
+    : c.tUser<=480  ? "Postava stojící ≈ 2 minuty se mění v poloprůhledného ducha."
+    : c.tUser<3600  ? "Lidé zmizeli; voda a mraky se slévají do hladkých ploch."
+    : c.tUser<86400 ? "Slunce se během expozice posune — na obloze zůstává světlá stopa."
+    : "Solargrafie: dráhy slunce se den po dni vrství do světelných oblouků.";
+  $("printCaption").textContent =
+    "f/"+Math.round(c.N)+" · α "+fmt(c.alpha,0)+"° ("+c.lensType.split(" — ")[0].toLowerCase()+") · expozice "+EXP_STEPS[S.tIdx].l+" — "+eff;
+}
+
+/* =============================================================================
+   SCHÉMA — POHLED SHORA (SVG)
+============================================================================= */
+function renderSchema(c){
+  const W=560,H=300,cy=150,px0=180;                 // dírka je vždy na x=180
+  const s=Math.min(0.85,210/c.p.diag);              // měřítko mm→px (konstantní vůči f ⇒ hloubka viditelně roste)
+  const bx=px0+S.f*s;                               // zadní stěna
+  const ph=c.p.diag*s/2;                            // půlka papíru (úhlopříčky)
+  const boxTop=cy-ph-14, boxBot=cy+ph+14;
+  const gap=7;                                      // otvor dírky (přehnaně, jinak by nebyl vidět)
+
+  // geometrie „šipky“: předmět vlevo, převrácený obraz na papíru
+  const objDist=150;
+  let imgH=ph*0.5, objH=imgH*objDist/(S.f*s);
+  if(objH>62){objH=62;imgH=objH*(S.f*s)/objDist;}
+  if(objH<9){objH=9;imgH=Math.min(ph*0.92,objH*(S.f*s)/objDist);}
+  const ox=px0-objDist;
+
+  // úhel kužele světla k rohům papíru
+  const th=Math.atan(ph/(S.f*s));
+  const exL=6, exT=cy-Math.tan(th)*(px0-exL), exB=cy+Math.tan(th)*(px0-exL);
+  const arcR=30, a1x=px0-arcR*Math.cos(th), a1y=cy-arcR*Math.sin(th), a2y=cy+arcR*Math.sin(th);
+
+  const A="#e9a03b", P="#f0e9dc", G="#8fbf75", M="#a89a86";
+  $("schemaBox").innerHTML =
+  '<svg viewBox="0 0 560 300" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono,monospace">'+
+    // kužel přijímaného světla (výplň + čárkované okraje)
+    `<path d="M${px0} ${cy} L${exL} ${exT} L${exL} ${exB} Z" fill="${A}" opacity="0.06"/>`+
+    `<path d="M${px0} ${cy} L${bx} ${cy-ph} M${px0} ${cy} L${bx} ${cy+ph}" stroke="${A}" stroke-width="1.4" opacity="0.55"/>`+
+    `<path d="M${px0} ${cy} L${exL} ${exT} M${px0} ${cy} L${exL} ${exB}" stroke="${A}" stroke-width="1.2" stroke-dasharray="5 5" opacity="0.5"/>`+
+    // oblouk zorného úhlu
+    `<path d="M${a1x} ${a1y} A${arcR} ${arcR} 0 0 0 ${a1x} ${a2y}" fill="none" stroke="${A}" stroke-width="1.4"/>`+
+    `<text x="${px0-arcR-8}" y="${cy+4}" fill="${A}" font-size="12" text-anchor="end">α</text>`+
+    // krabice
+    `<rect x="${px0}" y="${boxTop}" width="${Math.max(2,S.f*s)}" height="${boxBot-boxTop}" fill="rgba(240,233,220,0.03)" stroke="${M}" stroke-width="1.5" rx="2"/>`+
+    // přední stěna s otvorem + dírka
+    `<line x1="${px0}" y1="${boxTop}" x2="${px0}" y2="${cy-gap}" stroke="${P}" stroke-width="3"/>`+
+    `<line x1="${px0}" y1="${cy+gap}" x2="${px0}" y2="${boxBot}" stroke="${P}" stroke-width="3"/>`+
+    `<circle cx="${px0}" cy="${cy}" r="3" fill="${A}"><title>dírka</title></circle>`+
+    `<circle cx="${px0}" cy="${cy}" r="7" fill="none" stroke="${A}" opacity="0.4"/>`+
+    // fotopapír na zadní stěně
+    `<line x1="${bx}" y1="${cy-ph}" x2="${bx}" y2="${cy+ph}" stroke="${P}" stroke-width="5" stroke-linecap="round"/>`+
+    `<text x="${bx+9}" y="${cy}" fill="${M}" font-size="11" transform="rotate(90 ${bx+9} ${cy})" text-anchor="middle">fotopapír</text>`+
+    // předmět (šipka nahoru) a jeho převrácený obraz (šipka dolů)
+    `<line x1="${ox}" y1="${cy+objH}" x2="${ox}" y2="${cy-objH}" stroke="${G}" stroke-width="2.5"/>`+
+    `<path d="M${ox-6} ${cy-objH+9} L${ox} ${cy-objH} L${ox+6} ${cy-objH+9}" fill="none" stroke="${G}" stroke-width="2.5" stroke-linecap="round"/>`+
+    `<text x="${ox}" y="${cy+objH+18}" fill="${G}" font-size="11" text-anchor="middle">scéna</text>`+
+    `<line x1="${ox}" y1="${cy-objH}" x2="${bx}" y2="${cy+imgH}" stroke="${G}" stroke-width="1" opacity="0.55"/>`+
+    `<line x1="${ox}" y1="${cy+objH}" x2="${bx}" y2="${cy-imgH}" stroke="${G}" stroke-width="1" opacity="0.55"/>`+
+    `<line x1="${bx-5}" y1="${cy-imgH}" x2="${bx-5}" y2="${cy+imgH}" stroke="${G}" stroke-width="2.5"/>`+
+    `<path d="M${bx-11} ${cy+imgH-9} L${bx-5} ${cy+imgH} L${bx+1} ${cy+imgH-9}" fill="none" stroke="${G}" stroke-width="2.5" stroke-linecap="round"/>`+
+    // kóta hloubky f
+    `<line x1="${px0}" y1="278" x2="${bx}" y2="278" stroke="${M}" stroke-width="1"/>`+
+    `<line x1="${px0}" y1="273" x2="${px0}" y2="283" stroke="${M}" stroke-width="1"/>`+
+    `<line x1="${bx}" y1="273" x2="${bx}" y2="283" stroke="${M}" stroke-width="1"/>`+
+    `<text x="${(px0+bx)/2}" y="270" fill="${M}" font-size="11" text-anchor="middle">f = ${fmt(S.f,0)} mm</text>`+
+  '</svg>';
+
+  $("schemaLegend").innerHTML =
+    'dírka ⌀ <b>'+fmt(S.d,2)+' mm</b> (v nákresu zvětšena) · '+
+    'papír — úhlopříčka <b>'+fmt(c.p.diag,0)+' mm</b> · '+
+    'zorný úhel <b>α = '+fmt(c.alpha,1)+'°</b>';
+}
+
+/* =============================================================================
+   NÁHLED FOTOGRAFIE (canvas, vektorová scéna v tangentovém prostoru)
+   x = tan(úhlu od osy) ⇒ výřez podle skutečného horizontálního zorného úhlu
+============================================================================= */
+let grainPattern=null;
+function makeGrain(ctx){
+  const g=document.createElement("canvas");g.width=96;g.height=96;
+  const gc=g.getContext("2d"),im=gc.createImageData(96,96);
+  const r=mulberry32(7);
+  for(let i=0;i<im.data.length;i+=4){const v=140+r()*115;im.data[i]=im.data[i+1]=im.data[i+2]=v;im.data[i+3]=255;}
+  gc.putImageData(im,0,0);
+  grainPattern=ctx.createPattern(g,"repeat");
+}
+
+function drawCloud(ctx,cx,cy,sc,streak,alpha,col){
+  ctx.save();ctx.translate(cx,cy);ctx.scale(1+streak*7,1-streak*0.45);
+  ctx.globalAlpha*=alpha*(1-streak*0.45);ctx.fillStyle=col;
+  const puffs=[[0,0,1],[-0.9,0.15,0.7],[0.9,0.12,0.75],[-0.35,-0.3,0.65],[0.4,-0.28,0.6]];
+  for(const[px,py,ps]of puffs){ctx.beginPath();ctx.ellipse(px*sc,py*sc,sc*ps,sc*ps*0.62,0,0,7);ctx.fill();}
+  ctx.restore();
+}
+function drawSpruce(ctx,x,base,h,col){
+  ctx.fillStyle=col;
+  for(let i=0;i<3;i++){const w=h*(0.42-0.1*i),y0=base-h*(0.18+0.30*i);
+    ctx.beginPath();ctx.moveTo(x,y0-h*0.34);ctx.lineTo(x-w,y0);ctx.lineTo(x+w,y0);ctx.closePath();ctx.fill();}
+  ctx.fillRect(x-h*0.035,base-h*0.2,h*0.07,h*0.2);
+}
+function drawTree(ctx,x,base,h,col){
+  ctx.fillStyle=col;
+  ctx.fillRect(x-h*0.045,base-h*0.45,h*0.09,h*0.45);
+  ctx.beginPath();ctx.ellipse(x,base-h*0.62,h*0.42,h*0.4,0,0,7);ctx.fill();
+}
+function drawHouse(ctx,x,base,w,col){
+  const h=w*0.62;ctx.fillStyle=col;
+  ctx.fillRect(x-w/2,base-h,w,h);
+  ctx.beginPath();ctx.moveTo(x-w*0.58,base-h);ctx.lineTo(x,base-h-w*0.42);ctx.lineTo(x+w*0.58,base-h);ctx.closePath();ctx.fill();
+  ctx.fillRect(x+w*0.2,base-h-w*0.5,w*0.1,w*0.28);
+}
+function drawPerson(ctx,x,base,h,alpha,col,smear){
+  if(alpha<0.035)return;
+  const copies=smear?4:1;
+  for(let i=0;i<copies;i++){
+    ctx.save();ctx.globalAlpha*=alpha/copies;ctx.fillStyle=col;
+    const dx=smear?(i-1.5)*h*0.16:0, X=x+dx;
+    ctx.beginPath();ctx.arc(X,base-h*0.86,h*0.115,0,7);ctx.fill();           // hlava
+    ctx.beginPath();                                                          // trup
+    ctx.moveTo(X-h*0.14,base-h*0.72);ctx.lineTo(X+h*0.14,base-h*0.72);
+    ctx.lineTo(X+h*0.09,base-h*0.34);ctx.lineTo(X-h*0.09,base-h*0.34);ctx.closePath();ctx.fill();
+    ctx.fillRect(X-h*0.085,base-h*0.36,h*0.062,h*0.36);                       // nohy
+    ctx.fillRect(X+h*0.025,base-h*0.36,h*0.062,h*0.36);
+    ctx.restore();
+  }
+}
+
+function renderPreview(c){
+  const cv=$("previewCanvas"),wrap=cv.parentElement;
+  const cssW=wrap.clientWidth||600;
+  const ratio=clamp(c.p.b/c.p.a,0.42,1);
+  const cssH=Math.round(cssW*ratio);
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=Math.round(cssW*dpr);cv.height=Math.round(cssH*dpr);
+  cv.style.height=cssH+"px";
+  const ctx=cv.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(!grainPattern)makeGrain(ctx);
+
+  const t=c.tUser, solar=t>=86400, twilight=S.ev===8, overcast=S.ev===11, sunny=S.ev>=13;
+  const W=cssW,H=cssH;
+
+  // --- projekce: zoom podle horizontálního zorného úhlu -------------------
+  const aH=clamp(c.alphaH,4,150)*Math.PI/180;
+  const zoom=(W/2)/Math.tan(aH/2);
+  // u teleobjektivu „zamíříme“ na postavu (fotograf si vybírá výřez)
+  const aim=clamp((60-c.alphaH)/46,0,1);
+  const ax=0.16*aim, ay=0.085*aim;
+  ctx.save();
+  ctx.translate(W/2-ax*zoom, H*0.54-ay*zoom);
+  ctx.scale(zoom,zoom);
+  const vx=(W/2+Math.abs(ax*zoom))/zoom, vyT=(H*0.54)/zoom+Math.abs(ay), vyB=(H*0.46)/zoom+Math.abs(ay);
+
+  // --- palety ---------------------------------------------------------------
+  const PAL = solar
+    ? {skyT:"#141d30",skyB:"#33415c",ridgeF:"#20293b",ridgeN:"#161d2b",ground:"#191512",ground2:"#0e0c0a",
+       tree:"#0b0e14",house:"#0a0c11",water:"#2a3448",waterHi:"#465a7a",person:"#0b0e14",cloud:"rgba(90,105,135,0.5)"}
+    : twilight
+    ? {skyT:"#6f6a78",skyB:"#a89e9b",ridgeF:"#8a8279",ridgeN:"#5f5952",ground:"#4a443d",ground2:"#332f2a",
+       tree:"#26221e",house:"#211d1a",water:"#918a80",waterHi:"#c8c1b5",person:"#1d1a17",cloud:"rgba(120,114,110,0.8)"}
+    : {skyT: overcast?"#c9c5bd":"#c4bfb5", skyB: overcast?"#e6e2da":"#efe9dd",
+       ridgeF:"#b3ada1",ridgeN:"#87816f",ground:"#75705f",ground2:"#4e4a40",
+       tree:"#37332b",house:"#2c2822",water:"#d9d3c6",waterHi:"#f3eee3",person:"#241f1a",cloud:"rgba(250,247,240,0.92)"};
+
+  // --- obloha ----------------------------------------------------------------
+  const sg=ctx.createLinearGradient(0,-vyT,0,0.05);
+  sg.addColorStop(0,PAL.skyT);sg.addColorStop(1,PAL.skyB);
+  ctx.fillStyle=sg;ctx.fillRect(-vx,-vyT,2*vx,vyT+0.06);
+
+  // --- slunce / dráhy slunce --------------------------------------------------
+  const sunPos=u=>({x:-2.15+4.3*u, y:-(0.13+0.86*Math.sin(Math.PI*u))});
+  if(solar){
+    const days=t/86400, n=Math.round(clamp(days,2,22)), r=mulberry32(42);
+    for(let k=0;k<n;k++){
+      const drop=0.30*(k/Math.max(1,n-1));                 // sezónní posun výšky dráhy
+      ctx.lineCap="round";
+      for(let pass=0;pass<2;pass++){
+        ctx.strokeStyle=pass?"#ffedbe":"rgba(255,214,130,0.28)";
+        ctx.lineWidth=(pass?2.2:6)/zoom;
+        ctx.beginPath();let pen=false;
+        for(let u=0.05;u<=0.95;u+=0.01){
+          if(r()<0.16){pen=false;continue;}                // mezery = zatažené úseky
+          const q=sunPos(u);const y=q.y+drop;
+          if(!pen){ctx.moveTo(q.x,y);pen=true;}else ctx.lineTo(q.x,y);
+        }
+        ctx.stroke();
+      }
+    }
+  }else if(sunny&&!twilight){
+    const q=sunPos(0.63);
+    if(t>=3600){                                           // hodinová expozice ⇒ šmouha slunce
+      const du=clamp(t/3600,1,13)/26;
+      for(let pass=0;pass<2;pass++){
+        ctx.strokeStyle=pass?"#fff3d2":"rgba(255,222,150,0.35)";
+        ctx.lineWidth=(pass?3:8)/zoom;ctx.lineCap="round";
+        ctx.beginPath();
+        for(let u=0.63-du;u<=0.63+du;u+=0.01){const p2=sunPos(u);u===0.63-du?ctx.moveTo(p2.x,p2.y):ctx.lineTo(p2.x,p2.y);}
+        ctx.stroke();
+      }
+    }else{
+      const rg=ctx.createRadialGradient(q.x,q.y,0,q.x,q.y,0.16);
+      rg.addColorStop(0,"rgba(255,248,230,1)");rg.addColorStop(0.4,"rgba(255,240,205,0.85)");rg.addColorStop(1,"rgba(255,240,205,0)");
+      ctx.fillStyle=rg;ctx.beginPath();ctx.arc(q.x,q.y,0.16,0,7);ctx.fill();
+      ctx.fillStyle="#fffdf6";ctx.beginPath();ctx.arc(q.x,q.y,0.052,0,7);ctx.fill();
+    }
+  }
+
+  // --- mraky -------------------------------------------------------------------
+  const streak=clamp(Math.log10(Math.max(t,1)/30)/1.9,0,1);   // 30 s ostré → ~20 min slité
+  if(!solar){
+    const clouds= overcast
+      ? [[-1.7,-0.62,0.34],[ -0.4,-0.72,0.4],[0.9,-0.6,0.36],[2.0,-0.7,0.42],[-2.6,-0.55,0.3],[1.6,-0.86,0.3],[-1.1,-0.9,0.33],[0.2,-0.5,0.3]]
+      : sunny&&S.ev===13
+      ? [[-1.5,-0.62,0.26],[0.2,-0.82,0.3],[1.5,-0.56,0.24],[-2.4,-0.78,0.28],[2.4,-0.72,0.26]]
+      : twilight
+      ? [[-1.2,-0.6,0.3],[0.8,-0.75,0.34],[2.2,-0.55,0.26]]
+      : [[-1.8,-0.7,0.22],[1.3,-0.85,0.2]];
+    const cAlpha= overcast?0.95:0.85;
+    if(!(overcast&&streak>0.92))                              // dlouhá expozice + zataženo ⇒ hladká obloha
+      for(const[cx,cy2,sc]of clouds)drawCloud(ctx,cx,cy2,sc,streak,cAlpha,PAL.cloud);
+  }
+
+  // --- krajina -------------------------------------------------------------------
+  ctx.fillStyle=PAL.ridgeF;                                    // vzdálený hřeben
+  ctx.beginPath();ctx.moveTo(-vx,0.005);
+  for(let x=-3.2;x<=3.2;x+=0.4)ctx.lineTo(x,-0.03-0.05*Math.sin(x*1.7+1)-0.02*Math.sin(x*3.1));
+  ctx.lineTo(vx,0.005);ctx.closePath();ctx.fill();
+  ctx.fillStyle=PAL.ridgeN;                                    // bližší hřeben
+  ctx.beginPath();ctx.moveTo(-vx,0.02);
+  for(let x=-3.2;x<=3.2;x+=0.4)ctx.lineTo(x,0.0-0.045*Math.sin(x*1.1-0.6)-0.018*Math.sin(x*2.3+2));
+  ctx.lineTo(vx,0.02);ctx.closePath();ctx.fill();
+
+  const gg=ctx.createLinearGradient(0,0,0,vyB);                // louka
+  gg.addColorStop(0,PAL.ground);gg.addColorStop(1,PAL.ground2);
+  ctx.fillStyle=gg;ctx.fillRect(-vx,0,2*vx,vyB);
+
+  // --- potok (příčný pruh v popředí) ----------------------------------------------
+  const rippleAmp=1-clamp(Math.log10(Math.max(t,1)/8)/1.9,0,1); // 8 s vlnky → ~10 min mléko
+  const wTop=0.24,wBot=0.46;
+  ctx.beginPath();
+  ctx.moveTo(-vx,wTop+0.03);ctx.bezierCurveTo(-1,wTop-0.02,1,wTop+0.05,vx,wTop);
+  ctx.lineTo(vx,wBot+0.05);ctx.bezierCurveTo(1,wBot+0.1,-1,wBot,-vx,wBot+0.06);ctx.closePath();
+  const wg=ctx.createLinearGradient(0,wTop,0,wBot);
+  wg.addColorStop(0,PAL.water);wg.addColorStop(1,PAL.waterHi);
+  ctx.fillStyle=wg;ctx.fill();
+  if(rippleAmp>0.05){                                          // vlnky
+    ctx.strokeStyle=solar?"rgba(160,180,215,0.5)":"rgba(90,84,72,0.4)";
+    ctx.lineWidth=0.007;
+    const rr=mulberry32(11);
+    for(let i=0;i<26;i++){
+      const y=wTop+0.02+(wBot-wTop-0.04)*rr(), x0=-vx+rr()*2*vx, len=(0.08+rr()*0.22)*rippleAmp+0.02;
+      ctx.globalAlpha=rippleAmp*(0.35+rr()*0.5);
+      ctx.beginPath();ctx.moveTo(x0,y);ctx.quadraticCurveTo(x0+len/2,y-0.012*rippleAmp,x0+len,y);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+  }else{                                                       // „mléčný“ pruh dlouhé expozice
+    ctx.fillStyle=solar?"rgba(190,205,235,0.25)":"rgba(255,253,246,0.5)";
+    ctx.fillRect(-vx,wTop+0.05,2*vx,(wBot-wTop)*0.4);
+  }
+
+  // --- porost, stavení ---------------------------------------------------------------
+  drawSpruce(ctx,-2.55,0.10,0.30,PAL.tree);
+  drawTree  (ctx,-1.85,0.075,0.22,PAL.tree);
+  drawSpruce(ctx,-1.30,0.13,0.36,PAL.tree);
+  drawHouse (ctx,-0.72,0.115,0.30,PAL.house);
+  drawTree  (ctx, 1.05,0.07,0.20,PAL.tree);
+  drawSpruce(ctx, 1.55,0.12,0.34,PAL.tree);
+  drawTree  (ctx, 2.05,0.09,0.26,PAL.tree);
+  drawSpruce(ctx, 2.60,0.14,0.38,PAL.tree);
+  drawSpruce(ctx,-3.05,0.12,0.32,PAL.tree);
+  drawSpruce(ctx, 3.05,0.11,0.30,PAL.tree);
+
+  // --- postavy -----------------------------------------------------------------------
+  // stojící model vydrží bez hnutí ~2 minuty z celkové expozice
+  const standA=clamp(Math.min(t,120)/t,0,1);
+  drawPerson(ctx,0.16,0.215,0.235,standA,PAL.person,false);
+  // kolemjdoucí je ve scéně jen ~2 vteřiny
+  const walkA=clamp(Math.min(t,2)/t,0,1);
+  drawPerson(ctx,-0.42,0.20,0.22,walkA,PAL.person,t>1);
+
+  ctx.restore();
+
+  // --- zrno papíru + vinětace (obrazový prostor) ----------------------------------------
+  ctx.globalAlpha=0.05;ctx.fillStyle=grainPattern;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+  const vig=0.16+0.55*clamp((c.alpha-45)/95,0,1);
+  const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*0.32,W/2,H/2,Math.hypot(W,H)*0.62);
+  vg.addColorStop(0,"rgba(0,0,0,0)");vg.addColorStop(1,"rgba(10,8,6,"+vig.toFixed(2)+")");
+  ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+
+  // --- neostrost + expozice přes CSS filtr na canvasu -------------------------------------
+  const spotPx=clamp((c.spot/c.p.diag)*Math.hypot(W,H)*1.0,0.3,22);
+  let bright=1,contrast=1,extra="";
+  if(!solar){
+    bright=clamp(Math.pow(2,c.dEV*0.5),0.3,2.8);
+    contrast=1-clamp(Math.abs(c.dEV),0,4)*0.07;
+    extra=" sepia(0.16) saturate(0.55)";
+  }else{extra=" saturate(0.85)";}
+  cv.style.filter="blur("+spotPx.toFixed(1)+"px) brightness("+bright.toFixed(2)+") contrast("+contrast.toFixed(2)+")"+extra;
+  cv.style.transform="scale("+(1+2.4*spotPx/W).toFixed(3)+")";
+}
+
+/* =============================================================================
+   HLAVNÍ PŘEKRESLENÍ
+============================================================================= */
+let raf=null;
+function update(){
+  if(raf)return;
+  raf=requestAnimationFrame(()=>{
+    raf=null;
+    const c=compute();
+    renderStats(c);renderSchema(c);renderPreview(c);
+  });
+}
+
+/* =============================================================================
+   VSTUPY — VALIDACE A PROPOJENÍ
+============================================================================= */
+function bindPair(rng,num,key,min,max,dec){
+  const R=$(rng),N=$(num);
+  R.addEventListener("input",()=>{S[key]=parseFloat(R.value);N.value=S[key];clearPreset();update();});
+  N.addEventListener("input",()=>{const v=parseNum(N.value);if(isFinite(v)&&v>=min&&v<=max){S[key]=v;R.value=v;clearPreset();update();}});
+  N.addEventListener("change",()=>{let v=parseNum(N.value);if(!isFinite(v))v=S[key];v=clamp(v,min,max);v=parseFloat(v.toFixed(dec));S[key]=v;N.value=v;R.value=v;clearPreset();update();});
+}
+function validateCustom(){
+  const err=$("customErr");
+  let w=parseNum($("inW").value),h=parseNum($("inH").value),bad=[];
+  if(!isFinite(w)||w<3||w>120)bad.push("šířku");
+  if(!isFinite(h)||h<3||h>120)bad.push("výšku");
+  if(bad.length){err.style.display="";err.textContent="Zadejte "+bad.join(" a ")+" v rozmezí 3–120 cm. Zatím počítám s poslední platnou hodnotou.";}
+  else{err.style.display="none";S.w=w;S.h=h;}
+}
+function clearPreset(){
+  if(S.presetId===null)return;
+  S.presetId=null;
+  document.querySelectorAll(".preset").forEach(b=>b.setAttribute("aria-pressed","false"));
+}
+function nearestStep(sec){
+  let best=0,bd=Infinity;
+  EXP_STEPS.forEach((st,i)=>{const d=Math.abs(Math.log(st.s/sec));if(d<bd){bd=d;best=i;}});
+  return best;
+}
+
+function init(){
+  // formát papíru
+  $("selFormat").addEventListener("change",e=>{
+    S.format=e.target.value;
+    $("customRow").style.display=S.format==="custom"?"":"none";
+    if(S.format==="custom")validateCustom();else $("customErr").style.display="none";
+    clearPreset();update();
+  });
+  ["inW","inH"].forEach(id=>$(id).addEventListener("input",()=>{validateCustom();clearPreset();update();}));
+
+  bindPair("rngF","numF","f",20,400,0);
+  bindPair("rngD","numD","d",0.1,2,2);
+
+  $("rngT").addEventListener("input",e=>{S.tIdx=parseInt(e.target.value,10);clearPreset();update();});
+  $("selLight").addEventListener("change",e=>{S.ev=parseInt(e.target.value,10);clearPreset();update();});
+  $("selMat").addEventListener("change",e=>{S.mat=e.target.value;clearPreset();update();});
+  $("chkRecip").addEventListener("change",e=>{S.recip=e.target.checked;update();});
+
+  $("btnOptD").addEventListener("click",()=>{
+    const v=parseFloat((0.036*Math.sqrt(S.f)).toFixed(2));
+    S.d=clamp(v,0.1,2);$("rngD").value=S.d;$("numD").value=S.d;clearPreset();update();
+  });
+  $("btnRecT").addEventListener("click",()=>{
+    const c=compute();S.tIdx=nearestStep(c.tRec);$("rngT").value=S.tIdx;clearPreset();update();
+  });
+
+  // presety
+  const grid=$("presetGrid");
+  PRESETS.forEach(p=>{
+    const b=document.createElement("button");
+    b.type="button";b.className="preset";b.setAttribute("aria-pressed","false");b.dataset.id=p.id;
+    b.innerHTML='<span class="ico" aria-hidden="true">'+p.ico+'</span><span class="name">'+p.name+'</span><span class="meta">'+p.meta+"</span>";
+    b.addEventListener("click",()=>applyPreset(p));
+    grid.appendChild(b);
+  });
+
+  // překreslení při změně velikosti
+  const wrap=$("previewCanvas").parentElement;
+  if("ResizeObserver"in window)new ResizeObserver(()=>update()).observe(wrap);
+  else window.addEventListener("resize",update);
+
+  update();
+}
+function applyPreset(p){
+  S.format=p.set.format;$("selFormat").value=S.format;$("customRow").style.display="none";$("customErr").style.display="none";
+  S.f=p.set.f;$("rngF").value=S.f;$("numF").value=S.f;
+  S.d=p.set.d;$("rngD").value=S.d;$("numD").value=S.d;
+  S.tIdx=nearestStep(p.set.t);$("rngT").value=S.tIdx;
+  S.ev=p.set.light;$("selLight").value=String(S.ev);
+  S.presetId=p.id;
+  document.querySelectorAll(".preset").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.id===p.id)));
+  const d=$("presetDesc");d.innerHTML=p.desc;d.classList.add("show");
+  update();
+  const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.getElementById("simulator").scrollIntoView({behavior:reduce?"auto":"smooth",block:"start"});
+}
+document.addEventListener("DOMContentLoaded",init);
+</script>
+</body>
+</html>
