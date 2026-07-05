@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Interaktivní simulátor dírkové komory (camera obscura) pro kreativní workshop — zorný úhel, clonové číslo, optimální dírka a expozice v reálném čase.">
+<meta name="description" content="Interaktivní simulátor dírkové komory (camera obscura) — zorný úhel, clonové číslo, optimální dírka a expozice v reálném čase.">
 <meta name="theme-color" content="#171310">
 <title>Simulátor dírkové komory · Camera obscura</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23171310'/><circle cx='50' cy='50' r='9' fill='%23e9a03b'/><path d='M50 50 L14 22 M50 50 L14 78' stroke='%23e9a03b' stroke-width='4' opacity='.55'/></svg>">
@@ -122,7 +122,7 @@ button.ghost{padding:5px 10px;font-size:12.5px}
 .live{font-family:var(--mono);font-size:11px;letter-spacing:.12em;display:flex;align-items:center;gap:7px;color:#8a4a3d}
 .live i{width:8px;height:8px;border-radius:50%;background:var(--safelight);box-shadow:0 0 8px rgba(232,80,58,.8);animation:pulse 2.2s infinite}
 .cv-wrap{overflow:hidden;border-radius:4px;background:#111;line-height:0}
-#previewCanvas{width:100%;display:block;transform:scale(1.015)} /* scale skryje měkké okraje při CSS blur */
+#previewCanvas{width:100%;display:block;transform:scale(1.015)}
 .print-caption{font-family:var(--mono);font-size:11.5px;color:#5c5245;margin:10px 2px 2px;line-height:1.5;min-height:2.6em}
 
 /* ------- schéma ------- */
@@ -144,19 +144,14 @@ section.block>.sub{color:var(--muted);max-width:640px;margin:0 0 20px}
 .preset-desc{margin-top:16px;border-left:3px solid var(--amber);background:var(--panel);border-radius:0 var(--radius) var(--radius) 0;padding:14px 18px;color:var(--text);font-size:14.5px;line-height:1.6;display:none}
 .preset-desc.show{display:block}
 .preset-desc b{color:var(--amber);font-family:var(--disp)}
+.preset-desc img{width:100%;height:auto;border-radius:6px;margin-bottom:12px;border:1px solid var(--line);display:block;}
 
 /* ------- průvodce expozicí ------- */
 .guide{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
-.guide .card p{margin:0 0 12px;color:var(--text)}
+.guide .card h3{font-family:var(--disp);font-size:18px;color:var(--text);margin:0 0 6px 0;font-weight:600;}
+.guide .card p{margin:0 0 16px;color:var(--text)}
 .guide .card p:last-child{margin-bottom:0}
 .guide .muted{color:var(--muted)}
-ol.steps{margin:0;padding:0;list-style:none;counter-reset:s}
-ol.steps li{counter-increment:s;padding:12px 0 12px 44px;position:relative;border-top:1px solid var(--line)}
-ol.steps li:first-child{border-top:0;padding-top:2px}
-ol.steps li::before{content:counter(s);position:absolute;left:0;top:10px;width:28px;height:28px;border-radius:50%;border:1px solid var(--amber);color:var(--amber);font-family:var(--mono);font-weight:600;font-size:13px;display:grid;place-items:center}
-ol.steps li:first-child::before{top:0}
-ol.steps b{display:block;font-size:14.5px}
-ol.steps span{color:var(--muted);font-size:13.5px}
 table.exp{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:13px;margin-top:4px}
 table.exp caption{caption-side:top;text-align:left;font-family:var(--sans);font-weight:600;font-size:14px;color:var(--text);padding-bottom:8px}
 table.exp th,table.exp td{padding:8px 10px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
@@ -183,7 +178,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
 
 <header class="hero">
   <div class="wrap">
-    <div class="eyebrow"><span class="lamp" aria-hidden="true"></span>Kreativní workshop · camera obscura · pracujeme za červeného světla</div>
+    <div class="eyebrow"><span class="lamp" aria-hidden="true"></span>Camera obscura · pracujeme za červeného světla</div>
     <h1>Simulátor <em>dírkové komory</em></h1>
     <p class="lead">Krabice, fotopapír a dírka o desetinách milimetru. Posouvejte parametry a sledujte, jak se
     <b>živě přepočítává zorný úhel, clona, ostrost i výsledná fotografie</b> — dřív, než začnete vrtat a lepit.</p>
@@ -192,10 +187,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
 
 <main class="wrap">
 
-  <!-- ===================== SIMULÁTOR ===================== -->
   <div class="sim-grid" id="simulator">
 
-    <!-- ---------- levý sloupec: vstupy + hodnoty ---------- -->
     <div class="stack">
       <div class="card stack" aria-label="Parametry komory">
         <div>
@@ -318,7 +311,6 @@ footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
       </div>
     </div>
 
-    <!-- ---------- pravý sloupec: fotografie + schéma ---------- -->
     <div class="stack">
       <div class="print-card">
         <div class="print-head">
@@ -338,7 +330,6 @@ footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
     </div>
   </div>
 
-  <!-- ===================== PRESETY ===================== -->
   <section class="block" id="presety">
     <h2>Recepty na konkrétní efekty</h2>
     <p class="sub">Klepnutím se hodnoty nastaví na sliderech — pak si je klidně dolaďte. Každý recept využívá jinou délku expozice.</p>
@@ -346,21 +337,25 @@ footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
     <div class="preset-desc" id="presetDesc" aria-live="polite"></div>
   </section>
 
-  <!-- ===================== PRŮVODCE EXPOZICÍ ===================== -->
   <section class="block" id="expozice">
     <h2>Malý průvodce expozicí</h2>
     <p class="sub">U dírkové komory nejde clona nastavit — je pevně daná poměrem <b style="font-family:var(--mono)">N&nbsp;=&nbsp;f&nbsp;÷&nbsp;d</b>.
     Jediné, co ovládáte, je <b>čas</b>. Expozice = jas scény × doba, po kterou je dírka odkrytá.</p>
 
     <div class="guide">
-      <div class="card">
-        <ol class="steps">
-          <li><b>Zjistěte clonové číslo</b><span>Vydělte hloubku krabice průměrem dírky. Typicky vyjde f/150 až f/350 — to je o 10 až 15 EV méně světla než běžný objektiv, proto se exponuje vteřiny až hodiny.</span></li>
-          <li><b>Odhadněte světlo na scéně</b><span>Jasné slunce, polojasno, zataženo, nebo stín? V simulátoru tomu odpovídá volba „Světlo na scéně“.</span></li>
-          <li><b>Určete základní čas</b><span>Z tabulky vedle, nebo nechte spočítat simulátor („Doporučený čas“). Fotopapír má citlivost jen ISO ≈ 3–6.</span></li>
-          <li><b>Prodlužte o Schwarzschildův jev</b><span>Při časech nad ~1 s papír ztrácí citlivost, takže skutečný čas musí být delší, než vyjde z prostého výpočtu. Simulátor prodlužuje přibližně na t<sup>1,3</sup>.</span></li>
-          <li><b>Jistota = tři snímky</b><span>Exponujte poloviční, vypočtený a dvojnásobný čas (bracketing). Papír je levný, zkušenost k nezaplacení.</span></li>
-        </ol>
+      <div class="card stack">
+        <div>
+          <h3>Čas (t)</h3>
+          <p>Doba, po kterou je dírka odkrytá a světlo dopadá na fotocitlivý materiál. Protože komora propouští velmi málo světla, jsou časy dlouhé — od vteřin až po měsíce. Je to jediný parametr, který při samotném focení reálně ovládáte.</p>
+        </div>
+        <div>
+          <h3>Clona (f)</h3>
+          <p>Udává, kolik světla dírka propustí. U dírkové komory je pevně daná a neměnná. Vypočítá se jako poměr hloubky krabice a průměru dírky (N = f ÷ d). Běžně se pohybuje kolem hodnot f/150 až f/350.</p>
+        </div>
+        <div>
+          <h3>Citlivost (ISO)</h3>
+          <p>Schopnost materiálu reagovat na světlo. Klasický černobílý film má ISO kolem 100–400, ale fotopapír má citlivost extrémně nízkou (ISO 3–6). Nízká citlivost proto vyžaduje úměrně delší časy expozice.</p>
+        </div>
       </div>
       <div class="card">
         <table class="exp">
@@ -385,7 +380,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
 
 <footer>
   <div class="wrap">
-    <span>Simulátor dírkové komory · vytvořeno pro kreativní workshop</span>
+    <span>Simulátor dírkové komory</span>
     <span>Náhled fotografie je ilustrační — skutečný svět je vždy o kousek krásnější.</span>
   </div>
 </footer>
@@ -410,20 +405,20 @@ const MATERIALS = {
   f100:{iso:100,paper:false},
   f400:{iso:400,paper:false}
 };
-const PRESETS = [
-  {id:"freeze", ico:"⏱", name:"Zmrazení pohybu", meta:"desítky vteřin",
-   set:{format:"10x15", f:40, d:0.23, t:30, light:15},
-   desc:"<b>Zmrazení pohybu.</b> Mělká krabice, optimální dírka a jasné slunce stlačí expozici na desítky vteřin. Kdo vydrží půl minuty bez hnutí, bude na snímku ostrý; co se pohne rychle, nestihne se do papíru vůbec zapsat."},
-  {id:"ghost", ico:"👻", name:"Efekt duchů", meta:"2–5 minut",
-   set:{format:"10x15", f:80, d:0.38, t:300, light:13},
-   desc:"<b>Efekt duchů.</b> Při expozici 2–5 minut lidé, kteří scénou jen projdou, na fotce vůbec nebudou. Kdo zůstane minutu až dvě nehybně stát, promění se v poloprůhledného ducha — papír ho zaznamená jen po část celkového času."},
-  {id:"water", ico:"🌊", name:"Rozmazání vody a mraků", meta:"10–20 minut",
-   set:{format:"10x15", f:110, d:0.38, t:900, light:13},
-   desc:"<b>Rozmazání vody a mraků.</b> Během 10–20 minut se tekoucí voda a plující mraky zprůměrují do hladké, mlžné plochy. Všechno nehybné — stromy, budovy, kameny — zůstane kresebné. Klasika dlouhé expozice."},
-  {id:"solar", ico:"☀️", name:"Solargrafie", meta:"týdny až měsíce",
-   set:{format:"10x15", f:160, d:0.40, t:5184000, light:15},
-   desc:"<b>Solargrafie.</b> Komoru pevně připevněte na místo (strom, sloup, parapet) a nechte ji tam týdny až měsíce. Papír bez vyvolání přímo ztmavne a den po dni zaznamená dráhu slunce jako jasné světelné oblouky putující po obloze. Skener, negativ převrátit — hotovo."}
-];
+    const PRESETS = [
+      {id:"freeze", ico:"⏱", name:"Zmrazení pohybu", meta:"desítky vteřin",
+       set:{format:"10x15", f:40, d:0.23, t:30, light:15},
+       desc:"<img src='https://media.istockphoto.com/id/161839795/ko/%EC%82%AC%EC%A7%84/%EC%9E%A0%EC%8B%9C-%EA%B3%A0%EC%9A%94%ED%95%9C-%EB%AA%85%EC%83%81-%EB%B9%A0%EB%A5%B4%EA%B2%8C-%EC%A7%84%ED%96%89%EB%90%98%EB%8A%94-%EC%84%B8%EA%B3%84.jpg?s=612x612&w=0&k=20&c=YwlAyDq4j0Rsup9JmU0I1mBjSZRWApdTlG41vJbFGCs=' alt='Efekt duchů'><b>Zmrazení pohybu.</b> Mělká krabice, optimální dírka a jasné slunce stlačí expozici na desítky vteřin. Kdo vydrží půl minuty bez hnutí, bude na snímku ostrý; co se pohne rychle, nestihne se do papíru vůbec zapsat."},
+      {id:"ghost", ico:"👻", name:"Efekt duchů", meta:"2–5 minut",
+       set:{format:"10x15", f:80, d:0.38, t:300, light:13},
+       desc:"<img src='https://www.groovypost.com/wp-content/uploads/2022/05/long-exposure-photo-featured.jpg' alt='Zmrazení pohybu'><b>Efekt duchů.</b> Při expozici 2–5 minut lidé, kteří scénou jen projdou, na fotce vůbec nebudou. Kdo zůstane minutu až dvě nehybně stát, promění se v poloprůhledného ducha — papír ho zaznamená jen po část celkového času."},
+      {id:"water", ico:"🌊", name:"Rozmazání vody", meta:"10–20 minut",
+       set:{format:"10x15", f:110, d:0.38, t:900, light:13},
+       desc:"<img src='https://i.imgur.com/ahoNAbP.jpg' alt='Rozmazání vody a mraků'><b>Rozmazání vody a mraků.</b> Během 10–20 minut se tekoucí voda a plující mraky zprůměrují do hladké, mlžné plochy. Všechno nehybné — stromy, budovy, kameny — zůstane kresebné. Klasika dlouhé expozice."},
+      {id:"solar", ico:"☀️", name:"Solargrafie", meta:"týdny až měsíce",
+       set:{format:"10x15", f:160, d:0.40, t:5184000, light:15},
+       desc:"<img src='https://c02.purpledshub.com/uploads/sites/48/2019/03/Pinhole-solargraphy-HEADER-0670a30.jpg?w=1200&webp=1' alt='Solargrafie a hvězdy'><b>Solargrafie a hvězdy.</b> Komoru pevně připevněte na místo (strom, sloup, parapet) a nechte ji tam týdny až měsíce. Papír bez vyvolání přímo ztmavne a den po dni zaznamená dráhu slunce jako jasné světelné oblouky putující po obloze. V noci se na extrémně dlouhých expozicích mohou objevit i stopy hvězd (startrails). Skener, negativ převrátit — hotovo."}
+    ];
 
 /* =============================================================================
    STAV A POMOCNÉ FUNKCE
@@ -927,8 +922,6 @@ function applyPreset(p){
   document.querySelectorAll(".preset").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.id===p.id)));
   const d=$("presetDesc");d.innerHTML=p.desc;d.classList.add("show");
   update();
-  const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  document.getElementById("simulator").scrollIntoView({behavior:reduce?"auto":"smooth",block:"start"});
 }
 document.addEventListener("DOMContentLoaded",init);
 </script>
